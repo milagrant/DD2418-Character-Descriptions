@@ -6,7 +6,12 @@ import string
 import sys
 reload(sys)
 sys.setdefaultencoding('utf8')
-from Gen import gen_description
+from GenDescriptions import gen_description
+
+# Cutoff for how many of the most common adjectives should be discarded
+COMMON_ADJECTIVES = 130
+# The number of potential characters to be considered
+CHARACTERS = 10 
 
 titles = ("Mr.", "Ms.", "Miss", "Mrs.", "Dr.", "Madam", "Sir", "Lady")
 stops = string.punctuation
@@ -19,11 +24,20 @@ title_pairs = dict()
 common_adj = list()
 
 def find_common_adjectives(tagged):
+    """
+    Finds the most frequent adjectives so they can be used to remove them from the results
+    :param tagged: The tokenized and part-of-speech tagged text
+    """
     global common_adj
     adjectives = [t[0] for t in tagged if( t[1] == "JJ")]
-    common_adj = [word for word,nr in Counter(adjectives).most_common(130)]
+    common_adj = [word for word,nr in Counter(adjectives).most_common(COMMON_ADJECTIVES)]
     
+
 def find_names(tagged):
+    """
+    Finds the unique names in the text
+    :param tagged: The tokenized and part-of-speech tagged text
+    """
     prev = " "
     for line in tagged:
         token = line[0]
@@ -39,9 +53,13 @@ def find_names(tagged):
                 candidates.append(token)
                 prevs[token] = [prev]
         prev = token
-    return [word for word,nr in Counter(candidates).most_common(2)]
+    return [word for word,nr in Counter(candidates).most_common(CHARACTERS)]
     
 def find_prevs(characters):
+    """
+    Finds all names and titles immediately preceding each unique name
+    :param characters: A list with all unique character names
+    """
     for c in characters:
         prev_names[c] = list()
         prev_titles[c] = list()
@@ -53,6 +71,11 @@ def find_prevs(characters):
                 prev_titles[c].append(token)
 
 def adjectives_search(q, content):
+    """
+    Finds all adjectives appearing in the same sentence as each character name
+    :param q: A list with the search querie for each character
+    :param content: The un-tokenized whole text of the novel
+    """
     adjectives = list()
     sentences = re.split(r' (?<![Mrs|Ms|Mr|Dr])\.|[\?!"]', content)
     query = " ".join(q)
@@ -65,12 +88,21 @@ def adjectives_search(q, content):
     return adjectives
   
 def combine_with_titles(character, character_titles):
+    """
+    Combines each character name with its title
+    :param character: The names associated with one character
+    :param character_titles: The titles associated with a chararacter name
+    """
     pairs = list()
     for title in character_titles:
         pairs.append([title, character])
     title_pairs[character] = pairs
     
 def formulate_queries(finals):
+    """
+    Retrurns a search query for a character
+    :param finals: The final set of characters found, may differ from CHARACTERS
+    """
     queries = dict()
     for i in finals:
         string = " ".join(i)
@@ -89,8 +121,8 @@ def formulate_queries(finals):
                 queries[string] = [[i[1]]]
     return queries
 
-def main():
-    content = open("jekyll.txt").read()
+def main(filepath):
+    content = open(filepath).read()
     tokens = nltk.word_tokenize(content)
     tagged = nltk.pos_tag(tokens)
     find_common_adjectives(tagged)
@@ -134,4 +166,4 @@ def main():
         print("")
      
 if __name__== "__main__":
-  main()
+    main(sys.argv[1])
